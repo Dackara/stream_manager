@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Connexion</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="p-4">
+  <div class="container" style="max-width: 400px">
+    <h2 class="text-center mb-4">Connexion</h2>
+
+    <!-- Affichage d'un message d'erreur si les identifiants sont incorrects -->
+    {% if error %}
+    <div class="alert alert-danger">
+      Nom d'utilisateur ou mot de passe incorrect.
+    </div>
+    {% endif %}
+
+    <form method="post">
+      <div class="mb-3">
+        <label for="username" class="form-label">Nom d'utilisateur</label>
+        <input type="text" name="username" id="username" class="form-control" required>
+      </div>
+      <div class="mb-3">
+        <label for="password" class="form-label">Mot de passe</label>
+        <input type="password" name="password" id="password" class="form-control" required>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+    </form>
+
+    <hr>
+    <a href="/reset-password" class="text-muted d-block text-center">Mot de passe oubliÃ© ?</a>
+  </div>
+</body>
+</html>
