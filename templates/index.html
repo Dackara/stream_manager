@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Stream Manager</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .editable input:disabled {
+      background-color: #e9ecef;
+    }
+  </style>
+</head>
+<body class="p-4">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1>Stream Manager</h1>
+      <div>
+        ConnectÃ© en tant que <strong>{{ username }}</strong>
+        <a href="/logout" class="btn btn-sm btn-secondary ms-3">DÃ©connexion</a>
+      </div>
+    </div>
+
+    {% if stats_error %}
+    <div class="alert alert-danger">{{ stats_error }}</div>
+    {% endif %}
+
+    <div class="card border-info mb-4">
+      <div class="card-header bg-info text-white">
+        <h5 class="mb-0">Statistiques Nginx</h5>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-bordered mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>SystÃ¨me</th>
+              <th>Version Nginx</th>
+              <th>Version RTMP</th>
+              <th>Uptime</th>
+              <th>DÃ©bit entrant</th>
+              <th>DÃ©bit sortant</th>
+              <th>Bytes entrants</th>
+              <th>Bytes sortants</th>
+              <th>Clients en live</th>
+              <th>Clients sur stat</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="debian_version">...</td>
+              <td id="nginx_version">...</td>
+              <td id="rtmp_version">...</td>
+              <td id="uptime">...</td>
+              <td id="bw_in">...</td>
+              <td id="bw_out">...</td>
+              <td id="bytes_in">...</td>
+              <td id="bytes_out">...</td>
+              <td id="nclients_live">...</td>
+              <td id="nclients_stat">...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      function updateStats() {
+        fetch('/api/stats')
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              const stats = data.data;
+              document.getElementById('nginx_version').textContent = stats.nginx_version || '-';
+              document.getElementById('rtmp_version').textContent = stats.rtmp_version || '-';
+              document.getElementById('uptime').textContent = stats.uptime || '-';
+              document.getElementById('bw_in').textContent = stats.bw_in + ' Kbps';
+              document.getElementById('bw_out').textContent = stats.bw_out + ' Kbps';
+              document.getElementById('bytes_in').textContent = stats.bytes_in;
+              document.getElementById('bytes_out').textContent = stats.bytes_out;
+              document.getElementById('nclients_live').textContent = stats.nclients_live;
+              document.getElementById('nclients_stat').textContent = stats.nclients_stat;
+              document.getElementById('debian_version').textContent = stats.debian_version;
+            }
+          })
+          .catch(err => console.error("Erreur lors de la rÃ©cupÃ©ration des stats :", err));
+      }
+
+      setInterval(updateStats, 1000);
+      updateStats();
+    </script>
+
+    <form method="post" action="/save">
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>URL RTMP</th>
+            <th>ClÃ©</th>
+            <th>Boutons</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for name, data in platforms.items() %}
+          <tr class="editable" id="row_{{ name }}">
+            <td>
+              <input type="text" name="name_{{ name }}" value="{{ name }}" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="text" name="url_{{ name }}" value="{{ data.url }}" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="password" name="key_{{ name }}" value="{{ data.key }}" class="form-control" disabled>
+            </td>
+            <td class="d-flex gap-1">
+              <button type="button" class="btn btn-sm btn-outline-primary" onclick="enableEdit('{{ name }}')">Modifier</button>
+              <button type="submit" class="btn btn-sm btn-success" name="save" value="{{ name }}">Sauvegarder</button>
+              <form method="post" action="/delete/{{ name }}">
+                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Supprimer {{ name }} ?')">Supprimer</button>
+              </form>
+              <button
+                type="button"
+                class="btn btn-sm toggle-btn {% if data.enabled %}btn-success{% else %}btn-secondary{% endif %}"
+                data-name="{{ name }}">
+                {% if data.enabled %}ActivÃ©{% else %}DÃ©sactivÃ©{% endif %}
+              </button>
+            </td>
+            <td><span id="status_{{ name }}">{{ "ActivÃ©" if data.enabled else "DÃ©sactivÃ©" }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </form>
+
+    <hr>
+    <h3>Ajouter une plateforme</h3>
+    <form method="post" action="/add">
+      <div class="row g-3 mb-3">
+        <div class="col-md-2">
+          <label>Nom</label>
+          <input type="text" name="new_name" class="form-control" required>
+        </div>
+        <div class="col-md-3">
+          <label>Plateforme</label>
+          <select class="form-select" onchange="updateRTMP(this)" id="platformList">
+            <option value="">-- Choisir --</option>
+            <option value="Custom">PersonnalisÃ©e</option>
+            <option value="YouTube">YouTube</option>
+            <option value="Twitch">Twitch</option>
+            <option value="Facebook">Facebook</option>
+            <option value="TikTok">TikTok</option>
+            <option value="Instagram">Instagram</option>
+            <option value="X">X / Twitter</option>
+            <option value="Steam">Steam</option>
+            <option value="Dailymotion">Dailymotion</option>
+            <option value="Telegram">Telegram</option>
+            <option value="AmazonLive">Amazon Live</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label>URL RTMP</label>
+          <input type="text" name="new_url" id="new_url" class="form-control" required>
+        </div>
+        <div class="col-md-2">
+          <label>ClÃ©</label>
+          <input type="password" name="new_key" class="form-control" required>
+        </div>
+        <div class="col-md-1 d-grid align-items-end">
+          <button type="submit" class="btn btn-success">Ajouter</button>
+        </div>
+      </div>
+    </form>
+
+    <script>
+      function updateRTMP(select) {
+        const map = {
+          'YouTube': 'rtmp://a.rtmp.youtube.com/live2/',
+          'Twitch': 'rtmp://live.twitch.tv/app/',
+          'Facebook': 'rtmp://live-api-s.facebook.com:80/rtmp/',
+          'TikTok': 'rtmp://push-rtmp.tiktok.com/live/',
+          'Instagram': 'rtmp://live-upload.instagram.com:80/rtmp/',
+          'X': 'rtmp://stream.twitter.com/live/',
+          'Steam': 'rtmp://steam.tv/stream/',
+          'Dailymotion': 'rtmp://publish.dailymotion.com/publish-s/',
+          'Telegram': 'rtmp://stream.telegram.org/live/',
+          'AmazonLive': 'rtmp://live.amazon.com/app/'
+        };
+        document.getElementById("new_url").value = map[select.value] || '';
+      }
+
+      function enableEdit(name) {
+        const row = document.getElementById(`row_${name}`);
+        row.querySelectorAll('input').forEach(el => el.disabled = false);
+      }
+
+      document.querySelectorAll('.toggle-btn').forEach(button => {
+        button.addEventListener('click', function () {
+          const name = this.dataset.name;
+          fetch(`/toggle/${name}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success) {
+                this.textContent = data.enabled ? 'DÃ©sactiver' : 'Activer';
+                this.classList.toggle('btn-success', data.enabled);
+                this.classList.toggle('btn-secondary', !data.enabled);
+                document.getElementById(`status_${name}`).textContent = data.enabled ? 'ActivÃ©' : 'DÃ©sactivÃ©';
+              } else {
+                alert("Erreur lors du changement d'Ã©tat.");
+              }
+            })
+            .catch(() => alert("Erreur rÃ©seau."));
+        });
+      });
+    </script>
+  </div>
+</body>
+</html>
